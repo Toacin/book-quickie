@@ -1,11 +1,16 @@
-const { AuthenticationError } = require('apollo-server-express');
+const {AuthenticationError} = require('apollo-server-express');
 const { User } = require('../models');
 const { signToken } = require('../utils/auth');
 
 const resolvers = {
     Query: {
         getSingleUser: async (parent, args, context) => {
-            return User.findOne({_id: context.user._id}).populate('savedBooks')
+            const foundUser = User.findOne({_id: context.user._id})
+            if (!foundUser) {
+                throw new AuthenticationError("Couldn't find user")
+            }
+
+            return foundUser;
         }
     },
 
@@ -17,12 +22,42 @@ const resolvers = {
         },
         login: async (parent, {email, password}) => {
             const user = await User.findOne({email});
-
             if (!user) {
                 throw new AuthenticationError('Invalid Credentials');
             }
+
+            const correctPw = await user.isCorrectPassword(password);
+            if (!correctPw) {
+                throw new AuthenticationError('Invalid Credentials');
+            }
+
+            const token = signToken(user);
+            return {token, user};
+        },
+        saveBook: async (parent, args, context) => {
+            try {
+                const updatedUser = await User.findOneAndUpdate(
+                    {_id: context.user._id},
+                    {$addToSet: { savedBooks: args }},
+                    {new: true, runValidators: true}
+                );
+                return updatedUser;
+            } catch (err) {
+                return err;
+            }
+        },
+        deleteBook: async (parent, args, context) => {
+            const updatedUser = await User.findOneAndDelete(
+                {_id: context.user._id},
+                {$pull: {savedBooks: {bookId: params.bookId}}},
+                {new: true}
+            );
+            if (!updatedUser) {
+                throw new AuthenticationError('Could not update user')
+            };
+            return updatedUser;
         }
     }
 }
 
-module.exports = {};
+module.exports = resolvers;
