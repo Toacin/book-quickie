@@ -37,7 +37,7 @@ const resolvers = {
         saveBook: async (parent, args, context) => {
             try {
                 const updatedUser = await User.findOneAndUpdate(
-                    {_id: context._id},
+                    {_id: context.user._id},
                     {$addToSet: { savedBooks: args }},
                     {new: true, runValidators: true}
                 );
@@ -47,15 +47,19 @@ const resolvers = {
             }
         },
         deleteBook: async (parent, args, context) => {
-            const updatedUser = await User.findOneAndDelete(
-                {_id: context._id},
-                {$pull: {savedBooks: {bookId: params.bookId}}},
-                {new: true}
-            );
-            if (!updatedUser) {
-                throw new AuthenticationError('Could not update user')
-            };
-            return updatedUser;
+            try{
+                const updatedUser = await User.findOneAndUpdate(
+                    {_id: context.user._id},
+                    {$pull: {savedBooks: {bookId: args.bookId}}},
+                    {new: true}
+                );
+                if (!updatedUser) {
+                    throw new AuthenticationError('Could not update user')
+                };
+                return updatedUser;
+            } catch (err) {
+                console.log(err);
+            }
         }
     }
 }
